@@ -1,0 +1,319 @@
+/* Базовые стили для админ-панели */
+:root {
+    --admin-bg: #f4f6f9;
+    --admin-surface: #ffffff;
+    --admin-text: #212529;
+    --admin-border: #dee2e6;
+    --admin-primary: #007bff;
+    --admin-danger: #dc3545;
+    --admin-success: #28a745;
+    --admin-warning: #ffc107;
+    --admin-info: #17a2b8;
+}
+
+body {
+    background-color: var(--admin-bg);
+    color: var(--admin-text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    display: flex;
+}
+
+.admin-sidebar {
+    width: 250px;
+    background-color: #343a40;
+    color: #c2c7d0;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding-top: 1rem;
+}
+
+.admin-sidebar h2 {
+    text-align: center;
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+}
+
+.admin-sidebar a {
+    display: block;
+    color: #c2c7d0;
+    text-decoration: none;
+    padding: 1rem 1.5rem;
+    transition: background-color 0.2s;
+}
+
+.admin-sidebar a:hover {
+    background-color: #494e53;
+    color: #fff;
+}
+.admin-sidebar a.logout {
+    border-top: 1px solid #4f5962;
+    margin-top: 2rem;
+}
+
+
+.admin-content {
+    margin-left: 250px;
+    padding: 2rem;
+    width: 100%;
+    box-sizing: border-box; /* Для правильного расчета ширины */
+}
+
+h1 {
+    border-bottom: 1px solid var(--admin-border);
+    padding-bottom: 1rem;
+    margin-top: 0;
+}
+
+/* Статистика */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.stat-card {
+    background-color: var(--admin-surface);
+    border-radius: 8px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.stat-card-icon {
+    font-size: 2.5rem;
+    padding: 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+.stat-card-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.stat-card-icon.users { background-color: var(--admin-primary); }
+.stat-card-icon.tracks { background-color: var(--admin-info); }
+.stat-card-icon.contests { background-color: var(--admin-warning); }
+.stat-card-icon.donations { background-color: var(--admin-success); }
+
+
+.stat-card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #343a40;
+}
+
+.stat-label {
+    font-size: 1rem;
+    color: #6c757d;
+}
+
+/* Таблицы */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+    background-color: var(--admin-surface);
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+.admin-table th, .admin-table td {
+    padding: 0.9rem;
+    border: 1px solid var(--admin-border);
+    text-align: left;
+    vertical-align: middle;
+}
+.admin-table thead {
+    background-color: #e9ecef;
+}
+.admin-table tbody tr:nth-of-type(even) {
+    background-color: #f8f9fa;
+}
+
+/* Кнопки */
+.btn {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+.btn-edit { background-color: var(--admin-info); }
+.btn-save { background-color: var(--admin-primary); }
+.btn-cancel { background-color: #6c757d; }
+.btn-summarize { background-color: var(--admin-warning); color: #212529; }
+.btn-approve { background-color: var(--admin-success); }
+.btn-reject { background-color: var(--admin-danger); }
+.btn.btn-warning {
+    background-color: var(--admin-warning);
+    color: #212529;
+}
+
+
+/* Формы */
+.search-form { display: flex; }
+.search-form input { padding: 0.5rem; border: 1px solid var(--admin-border); border-radius: 4px 0 0 4px; }
+.search-form button { padding: 0.5rem 1rem; border: 1px solid var(--admin-primary); background-color: var(--admin-primary); color: #fff; border-radius: 0 4px 4px 0; cursor: pointer; }
+
+.admin-form {
+    background-color: var(--admin-surface);
+    padding: 2rem;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    max-width: 600px;
+}
+.admin-form .form-group { margin-bottom: 1.5rem; }
+.admin-form label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+.admin-form input, .admin-form select, .admin-form textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.admin-form small { color: #6c757d; }
+.admin-form .form-actions { display: flex; gap: 10px; margin-top: 1.5rem; }
+
+/* Форма смены статуса */
+.status-form {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+.status-form select {
+    padding: 0.4rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 4px;
+}
+.status-form button {
+    padding: 0.4rem 0.8rem;
+}
+
+/* Форма для продолжения конкурса */
+.continue-form {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--admin-border);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+.continue-form label {
+    font-size: 0.9em;
+    font-weight: bold;
+}
+.continue-form input {
+    padding: 0.4rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 4px;
+}
+
+
+/* Значки статуса */
+.status-badge {
+    padding: 0.3em 0.6em;
+    font-size: 0.8em;
+    font-weight: bold;
+    border-radius: 10px;
+    color: #fff;
+    text-transform: uppercase;
+}
+.status-pending { background-color: #6c757d; } 
+.status-submission_active { background-color: var(--admin-primary); } 
+.status-voting_active { background-color: var(--admin-success); } 
+.status-closed { background-color: var(--admin-danger); } 
+.status-approved { background-color: var(--admin-success); }
+.status-rejected { background-color: var(--admin-danger); }
+
+/* СТИЛИ ДЛЯ ИСТОРИИ АКТИВНОСТИ ПОЛЬЗОВАТЕЛЯ */
+.user-activity-container {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--admin-border);
+}
+
+.user-content-history {
+    margin-bottom: 2rem;
+}
+
+.history-item {
+    background-color: var(--admin-surface);
+    border: 1px solid var(--admin-border);
+    border-radius: 5px;
+    margin-bottom: 1rem;
+}
+
+.history-item summary {
+    padding: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-title {
+    color: var(--admin-text);
+}
+
+.history-season, .history-meta {
+    color: #6c757d;
+    font-weight: normal;
+    font-size: 0.9em;
+}
+
+.history-content {
+    padding: 0 1rem 1rem 1rem;
+    border-top: 1px solid var(--admin-border);
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.history-item.lyric-winner {
+    border-left: 5px solid var(--admin-success);
+}
+.history-item.lyric-winner summary {
+    font-size: 1.1rem;
+}
+
+.history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.history-list li {
+    background-color: var(--admin-surface);
+    padding: 1rem;
+    border: 1px solid var(--admin-border);
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.history-list li .btn, .history-item summary .btn {
+    margin-left: 1rem;
+}
+
