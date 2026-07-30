@@ -1,0 +1,33 @@
+# =====================================================================
+# MUZZONLINE.RU - КОМБИНИРОВАННЫЙ HTACCESS (МАРШРУТИЗАЦИЯ + БЕЗОПАСНОСТЬ)
+# =====================================================================
+
+# --- 1. Общие настройки ---
+# Главный файл
+DirectoryIndex index.php index.html
+# Запрет просмотра содержимого папок
+Options -Indexes
+# Включаем модуль переадресации
+RewriteEngine On
+RewriteBase /
+
+# --- 2. Защита критически важных файлов и папок ---
+# Блокировка доступа к системной папке /core/
+RewriteRule ^core/.*$ - [F,L]
+
+# Блокировка доступа к важным файлам
+<FilesMatch "(\.htaccess|\.htpasswd|db_connect\.php|auth\.php|functions\.php|config\.php|db_test\.php|full_db_dump\.sql)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# --- 3. Маршрутизация (ЧПУ плеера) ---
+# Если запрашиваемый файл или папка не существуют, отправляем запрос на index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA]

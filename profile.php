@@ -1,109 +1,197 @@
 <?php
+// Файл: /profile.php (Baseline v3.19 - Исправлена реферальная ссылка)
 session_start();
 require_once 'core/db_connect.php';
 require_once 'core/auth.php';
-
-if (!isUserLoggedIn()) {
-    header('Location: /login.php');
-    exit();
-}
+require_once 'core/settings.php';
 
 $currentUser = getCurrentUser();
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->execute([$currentUser['id']]);
-$userData = $stmt->fetch();
+$profileId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT) ?: ($currentUser['id'] ?? null);
 
-// --- Новая логика для определения, можно ли донатить ---
-$canDonate = false;
-$activeLyricContest = null;
+if (!$profileId) { header('Location: /login.php'); exit(); }
+
+$isMyProfile = ($currentUser && $currentUser['id'] == $profileId);
+
 try {
-    // Ищем последний конкурс текстов со статусом "Итоги"
-    $stmt_lyrics = $pdo->prepare("SELECT id, name FROM lyric_contests WHERE status = 'results' ORDER BY id DESC LIMIT 1");
-    $stmt_lyrics->execute();
-    $activeLyricContest = $stmt_lyrics->fetch();
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$profileId]);
+    $userData = $stmt->fetch();
+} catch (\PDOException $e) { $userData = null; }
 
-    if ($activeLyricContest) {
-        $canDonate = true;
-    }
-} catch (\PDOException $e) { /* Игнорируем ошибку */ }
+if (!$userData) { die("Пользователь не найден."); }
 
-require_once 'templates/header.php'; 
-?>
+// Получаем название проекта из настроек
+$projectName = function_exists('get_setting') ? get_setting('video_watermark_text', 'Realist-Music') : 'Realist-Music';
 
-<h1>Личный кабинет</h1>
+// Генерируем ссылку динамически по текущему домену
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+$refLink = $protocol . $_SERVER['HTTP_HOST'] . '/registration.php?ref=' . $userData['id'];
 
-<div class="profile-avatar-container">
-    <div class="avatar-frame">
-        <?php if (!empty($userData['avatar_filename'])): ?>
-            <img src="/uploads/avatars/<?php echo htmlspecialchars($userData['avatar_filename']); ?>" alt="Аватар">
-        <?php else: ?>
-            <svg class="default-avatar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
-        <?php endif; ?>
-    </div>
-    <form action="/api/upload_avatar.php" method="POST" enctype="multipart/form-data">
-        <label for="avatar_file" class="button-primary-styled">Загрузить аватар</label>
-        <input type="file" id="avatar_file" name="avatar_file" accept="image/*" onchange="this.form.submit()">
-    </form>
-    <small>Изображение будет обрезано до квадрата 190x190</small>
-</div>
+$pageTitle = $isMyProfile ? 'Личный кабинет' : 'Профиль ' . htmlspecialchars($userData['login']);
+require_once 'templates/header.php';
 
-<?php 
-if (isset($_GET['avatar']) && $_GET['avatar'] === 'success') echo '<div class="alert success">Аватар успешно обновлен!</div>';
-if (isset($_GET['error'])) {
-    $errorMsg = 'Произошла ошибка при загрузке аватара.';
-    if ($_GET['error'] === 'too_large') $errorMsg = 'Ошибка: Файл слишком большой (макс. 5 МБ).';
-    if ($_GET['error'] === 'invalid_type') $errorMsg = 'Ошибка: Недопустимый тип файла (разрешены JPG, PNG, GIF).';
-    echo '<div class="alert error">' . $errorMsg . '</div>';
+$userWinnings = [];
+try {
+    $sql_w = "SELECT w.*, t.title as track_title, tc.name as contest_name FROM winnings w JOIN tracks t ON w.track_id = t.id JOIN track_contests tc ON w.track_contest_id = tc.id WHERE w.user_id = ? ORDER BY w.id DESC";
+    $stmt_w = $pdo->prepare($sql_w);
+    $stmt_w->execute([$profileId]);
+    $userWinnings = $stmt_w->fetchAll();
+} catch (\PDOException $e) { }
+
+$purchaseHistory = [];
+if ($isMyProfile) {
+    try {
+        $uId = $currentUser['id'];
+        $sql_h = "(SELECT 'boost' as type, purchased_at, cost, 'В топ' as label FROM purchased_boost_log WHERE user_id = ?) 
+                  UNION ALL (SELECT 'highlight' as type, purchased_at, cost, 'Цвет' as label FROM purchased_highlight_log WHERE user_id = ?) 
+                  UNION ALL (SELECT 'vote' as type, purchased_at, 100 as cost, 'Голос' as label FROM purchased_votes_log WHERE user_id = ?) 
+                  ORDER BY purchased_at DESC LIMIT 10";
+        $stmt_h = $pdo->prepare($sql_h);
+        $stmt_h->execute([$uId, $uId, $uId]);
+        $purchaseHistory = $stmt_h->fetchAll();
+    } catch (\PDOException $e) { }
 }
+
+$referrals = [];
+if ($isMyProfile) {
+    $stmt_ref = $pdo->prepare("SELECT login, created_at FROM users WHERE referrer_id = ? ORDER BY created_at DESC");
+    $stmt_ref->execute([$profileId]);
+    $referrals = $stmt_ref->fetchAll();
+}
+
+$bonusRef = (int)get_setting('bonus_referral_referrer', 300);
+$bonusFriend = (int)get_setting('bonus_referral_referee', 300);
 ?>
 
-<div class="profile-info text-center">
-    <h3>Ваши данные</h3>
-    <p><strong>Логин:</strong> <?php echo htmlspecialchars($userData['login']); ?></p>
-    <p><strong>Email:</strong> <?php echo htmlspecialchars($userData['email']); ?></p>
-    <p><strong>Уровень доступа:</strong> <?php echo htmlspecialchars($userData['access_level']); ?></p>
-    <p><strong>Дата регистрации:</strong> <?php echo date('d.m.Y', strtotime($userData['created_at'])); ?></p>
-</div>
+<link rel="stylesheet" href="/assets/css/profile.css">
+<link rel="stylesheet" href="/assets/css/forms.css">
 
-<?php if (in_array($currentUser['access_level'], ['full', 'admin'])): ?>
-<div class="donation-section">
-    <h3>Поддержать конкурс</h3>
-    <?php if ($canDonate): ?>
-        <p>Сейчас идет сбор средств в призовой фонд для следующего конкурса треков.</p>
-        
-        <?php if(isset($_GET['donation']) && $_GET['donation'] === 'success') echo '<div class="alert success">Спасибо! Ваш донат отправлен на проверку администратору.</div>'; ?>
+<div class="container">
+    <h1 style="text-align:center; margin-bottom:30px;"><?php echo $isMyProfile ? 'Личный кабинет' : 'Профиль пользователя'; ?></h1>
 
-        <form class="form-styled" action="/api/make_donation.php" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="lyric_contest_id" value="<?php echo $activeLyricContest['id']; ?>">
-            <div class="form-group"><label for="amount">Сумма пожертвования:</label><input type="number" id="amount" name="amount" min="1" step="0.01" required placeholder="Например, 100.00"></div>
-            <div class="form-group"><label for="receipt_file">Скриншот/чек (PNG, JPG):</label><input type="file" id="receipt_file" name="receipt_file" accept="image/png, image/jpeg" required></div>
-            <button type="submit" class="button-primary">Пожертвовать</button>
-        </form>
-    <?php else: ?>
-        <p>Сбор пожертвований начнется после подведения итогов конкурса текстов.</p>
+    <?php if(isset($_GET['status']) && $_GET['status'] === 'success'): ?>
+        <div class="alert success" style="margin-bottom:20px;">Данные успешно обновлены!</div>
     <?php endif; ?>
-</div>
-<?php endif; ?>
 
-<div class="password-change-form">
-    <h3>Смена пароля</h3>
-    <?php 
-    if (isset($_GET['status']) && $_GET['status'] === 'success') echo '<div class="alert success">Пароль успешно изменен!</div>';
-    if (isset($_GET['error'])) {
-        $errorMsg = 'Произошла ошибка.';
-        if ($_GET['error'] === 'wrongpass') $errorMsg = 'Текущий пароль введен неверно.';
-        if ($_GET['error'] === 'mismatch') $errorMsg = 'Новый пароль и его подтверждение не совпадают.';
-        if ($_GET['error'] === 'short') $errorMsg = 'Новый пароль слишком короткий (минимум 6 символов).';
-        echo '<div class="alert error">' . $errorMsg . '</div>';
-    }
-    ?>
-    <form class="form-styled" action="/api/change_password.php" method="POST">
-        <div class="form-group"><label for="current_password">Текущий пароль:</label><input type="password" id="current_password" name="current_password" required></div>
-        <div class="form-group"><label for="new_password">Новый пароль:</label><input type="password" id="new_password" name="new_password" required minlength="6"><small>Минимум 6 символов.</small></div>
-        <div class="form-group"><label for="confirm_password">Подтвердите новый пароль:</label><input type="password" id="confirm_password" name="confirm_password" required></div>
-        <button type="submit" class="button-primary">Изменить пароль</button>
-    </form>
+    <div class="profile-grid">
+        <div class="profile-left">
+            <div class="profile-avatar-container">
+                <div class="avatar-frame">
+                    <?php if (!empty($userData['avatar_filename'])): ?>
+                        <img src="/uploads/avatars/<?php echo htmlspecialchars($userData['avatar_filename']); ?>" alt="Avatar">
+                    <?php else: ?>
+                        <div class="default-avatar-icon"><i class="fas fa-user-circle"></i></div>
+                    <?php endif; ?>
+                </div>
+                <?php if ($isMyProfile): ?>
+                    <form action="/api/upload_avatar.php" method="POST" enctype="multipart/form-data">
+                        <label for="avatar_file" class="button-primary-styled">Загрузить аватар</label>
+                        <input type="file" id="avatar_file" name="avatar_file" accept="image/*" style="display:none;" onchange="this.form.submit()">
+                    </form>
+                <?php else: ?>
+                    <a href="/api/start_conversation.php?partner_id=<?php echo $userData['id']; ?>" class="button-primary-styled" style="text-decoration:none;">Написать сообщение</a>
+                <?php endif; ?>
+            </div>
+
+            <?php if (isAdmin()): ?>
+                <div class="profile-section-box" style="text-align:center; margin-bottom:20px;">
+                    <a href="/admin/" target="_blank" class="button-primary" style="background:#dc3545; color:#fff;">АДМИН-ПАНЕЛЬ</a>
+                </div>
+            <?php endif; ?>
+
+            <div class="profile-section-box" style="text-align:center;">
+                <h3 style="border-bottom:none;">Ваши данные</h3>
+                <div style="font-size:1.1rem; line-height:2.2; margin-top:10px;">
+                    <div><strong>Логин:</strong> <?php echo htmlspecialchars($userData['login']); ?> <?php if($userData['is_pro']): ?><span style="color:gold;">👑</span><?php endif; ?></div>
+                    <div><strong>Email:</strong> <?php echo htmlspecialchars($userData['email']); ?></div>
+                    <div><strong>Уровень доступа:</strong> <?php echo strtoupper($userData['access_level']); ?></div>
+                    <div><strong>Дата регистрации:</strong> <?php echo date('d.m.Y', strtotime($userData['created_at'])); ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-right">
+            <?php if (!empty($userWinnings)): ?>
+                <div class="profile-section-box">
+                    <h3>🏆 Достижения</h3>
+                    <div class="awards-grid">
+                        <?php foreach($userWinnings as $w): ?>
+                            <div class="award-card">
+                                <div class="award-icon"><?php echo ($w['place']==1?'🥇':($w['place']==2?'🥈':'🥉')); ?></div>
+                                <div class="award-details">
+                                    <span class="award-title"><?php echo $w['place']; ?> место: <?php echo htmlspecialchars($w['track_title']); ?></span>
+                                    <small style="color:#666;"><?php echo htmlspecialchars($w['contest_name']); ?></small>
+                                    <div class="award-amount">+<?php echo number_format($w['amount'], 0, '.', ' '); ?> руб.</div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($isMyProfile): ?>
+                <div class="profile-section-box">
+                    <h3><i class="fas fa-lock"></i> Смена пароля</h3>
+                    <form action="/api/change_password.php" method="POST">
+                        <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 200px;">
+                                <label style="color:#888; font-size:0.8rem; margin-bottom:5px; display:block;">Текущий пароль</label>
+                                <input type="password" name="current_password" class="custom-input" required>
+                            </div>
+                            <div style="flex: 1; min-width: 200px;">
+                                <label style="color:#888; font-size:0.8rem; margin-bottom:5px; display:block;">Новый пароль</label>
+                                <input type="password" name="new_password" class="custom-input" minlength="6" required>
+                            </div>
+                            <button type="submit" class="button-primary" style="width: auto; padding: 12px 25px;">Сменить</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="profile-section-box">
+                    <h3>🤝 Партнерская программа</h3>
+                    <p style="color:#aaa; line-height:1.6; font-size: 0.95rem;">
+                        🔥 Приглашайте друзей в <b><?php echo htmlspecialchars($projectName); ?></b> и зарабатывайте вместе! 
+                        За каждого приведенного пользователя, который зарегистрируется по вашей ссылке, 
+                        вы получите <b><?php echo $bonusRef; ?> баллов</b>, а ваш друг — <b><?php echo $bonusFriend; ?> баллов</b> в качестве приветственного бонуса! 🚀
+                        Развивайте свою музыкальную сеть, копите баллы и продвигайте свои треки в ТОП Хит-парада быстрее остальных. 
+                        🎵 Творчество — это командная игра, приводите единомышленников и стройте комьюнити вместе с нами! 💸
+                    </p>
+                    
+                    <div class="form-group-row" style="margin-top:20px;">
+                        <label>Ваша уникальная реферальная ссылка:</label>
+                        <input type="text" id="ref-link" class="custom-input" value="<?php echo $refLink; ?>" readonly>
+                        <button class="button-primary" style="margin-top:10px;" onclick="copyRef()">Скопировать ссылку</button>
+                    </div>
+
+                    <div style="margin-top:15px; display:flex; gap:10px;">
+                        <a href="https://clck.ru/" target="_blank" class="share-btn">Clck.ru</a>
+                        <a href="https://vk.cc/" target="_blank" class="share-btn">VK.cc</a>
+                        <a href="https://bitly.com/" target="_blank" class="share-btn">Bitly</a>
+                    </div>
+
+                    <h4 style="color:#fff; margin-top:20px;">Ваши приглашенные рефералы:</h4>
+                    <div class="history-table-wrapper" style="max-height: 250px; overflow-y: auto;">
+                        <table class="admin-table">
+                            <thead><tr><th>Логин</th><th>Дата регистрации</th></tr></thead>
+                            <tbody>
+                                <?php if(empty($referrals)): ?><tr><td colspan="2" style="text-align:center;">Пока нет приглашенных.</td></tr><?php else: ?>
+                                <?php foreach($referrals as $r): ?>
+                                    <tr><td><?php echo htmlspecialchars($r['login']); ?></td><td><?php echo date('d.m.Y', strtotime($r['created_at'])); ?></td></tr>
+                                <?php endforeach; ?><?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
+
+<script>
+function copyRef() {
+    const el = document.getElementById('ref-link');
+    el.select(); document.execCommand('copy'); alert('Реферальная ссылка скопирована!');
+}
+</script>
 
 <?php require_once 'templates/footer.php'; ?>
-

@@ -1,45 +1,61 @@
 <?php
-// Устанавливаем правильный порядок: сначала ядро, потом отображение
+// Файл: /login.php (Baseline v2.9 - Сброс плеера при входе)
 session_start();
 require_once 'core/db_connect.php';
 require_once 'core/auth.php';
-require_once 'templates/header.php'; 
+
+if (isUserLoggedIn()) {
+    header('Location: /profile.php');
+    exit();
+}
+
+$pageTitle = 'Вход';
+require_once 'templates/header.php';
 ?>
 
-<h1>Вход</h1>
+<link rel="stylesheet" href="/assets/css/forms.css">
 
-<?php
-// Показываем сообщение об успешной регистрации, если есть параметр ?status=success
-if (isset($_GET['status']) && $_GET['status'] === 'success'): ?>
-    <div class="alert success">Вы успешно зарегистрированы! Теперь можете войти.</div>
-<?php endif; ?>
+<div class="container">
+    <div class="auth-card">
+        <h1>Вход</h1>
 
-<?php
-// Показываем сообщение об ошибке, если есть параметр ?error=1
-if (isset($_GET['error']) && $_GET['error'] === '1'): ?>
-    <div class="alert error">Неверный логин или пароль.</div>
-<?php endif; ?>
+        <?php if (isset($_GET['status']) && $_GET['status'] === 'success'): ?>
+            <div class="alert success">Вы успешно зарегистрированы! Можете войти.</div>
+        <?php endif; ?>
 
+        <?php if (isset($_GET['error']) && $_GET['error'] === '1'): ?>
+            <div class="alert error">Неверный логин или пароль.</div>
+        <?php endif; ?>
 
-<form class="form-styled" action="/api/login_user.php" method="POST">
-    <div class="form-group">
-        <label for="login">Логин:</label>
-        <input type="text" id="login" name="login" required>
+        <form action="/api/login_user.php" method="POST">
+            <div class="form-group-row">
+                <label for="login">Ваш логин</label>
+                <input type="text" id="login" name="login" class="custom-input" placeholder="Введите логин" required>
+            </div>
+
+            <div class="form-group-row">
+                <label for="password">Ваш пароль</label>
+                <input type="password" id="password" name="password" class="custom-input" placeholder="Введите пароль" required>
+            </div>
+
+            <button type="submit" class="button-primary">Войти в систему</button>
+        </form>
+
+        <div class="auth-links">
+            <p><a href="/forgot_password.php">Забыли пароль?</a></p>
+            <p>Ещё нет аккаунта? <a href="/registration.php">Зарегистрироваться</a></p>
+        </div>
     </div>
+</div>
 
-    <div class="form-group">
-        <label for="password">Пароль:</label>
-        <input type="password" id="password" name="password" required>
-    </div>
-
-    <button type="submit" class="button-primary">Войти</button>
-</form>
-
-<!-- --- ИЗМЕНЕНИЕ ЗДЕСЬ --- -->
-<p class="centered-text">
-    <a href="/forgot_password.php">Забыли пароль?</a>
-</p>
-<p class="centered-text">Ещё нет аккаунта? <a href="/registration.php">Зарегистрироваться</a></p>
-
+<script>
+    // Принудительно останавливаем музыку при попадании на страницу входа
+    if (window.Player) {
+        window.Player.stopAndReset();
+    } else {
+        sessionStorage.removeItem('player_state');
+        sessionStorage.removeItem('is_navigating');
+    }
+</script>
 
 <?php require_once 'templates/footer.php'; ?>
